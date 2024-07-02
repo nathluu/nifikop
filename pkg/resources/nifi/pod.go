@@ -476,6 +476,39 @@ func (r *Reconciler) createNifiNodeContainer(nodeConfig *v1.NodeConfig, id int32
 				},
 			},
 		},
+		{
+			Name: "AZURE_CLIENT_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "nifi-secrets",
+					},
+					Key: "AZURE_CLIENT_ID",
+				},
+			},
+		},
+		{
+			Name: "AZURE_CLIENT_SECRET",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "nifi-secrets",
+					},
+					Key: "AZURE_CLIENT_SECRET",
+				},
+			},
+		},
+		{
+			Name: "AZURE_TENANT_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "nifi-secrets",
+					},
+					Key: "AZURE_TENANT_ID",
+				},
+			},
+		},
 	}
 
 	singleUser := ""
@@ -531,10 +564,21 @@ do
 done
 echo "Hostname is successfully binded withy IP address"`, nodeAddress, nodeAddress)
 	}
+
+	azureCredential := fmt.Sprintf(`echo "Populating configuration files with secrets..."
+sed -i "s/AZURE_CLIENT_ID_OVERRIDE_ME/$AZURE_CLIENT_ID/g" ${NIFI_HOME}/conf/nifi.properties
+sed -i "s/AZURE_CLIENT_SECRET_OVERRIDE_ME/$AZURE_CLIENT_SECRET/g" ${NIFI_HOME}/conf/nifi.properties
+sed -i "s/AZURE_TENANT_ID_OVERRIDE_ME/$AZURE_TENANT_ID/g" ${NIFI_HOME}/conf/nifi.properties
+sed -i "s/AZURE_CLIENT_ID_OVERRIDE_ME/$AZURE_CLIENT_ID/g" ${NIFI_HOME}/conf/authorizers.xml
+sed -i "s/AZURE_CLIENT_SECRET_OVERRIDE_ME/$AZURE_CLIENT_SECRET/g" ${NIFI_HOME}/conf/authorizers.xml
+sed -i "s/AZURE_TENANT_ID_OVERRIDE_ME/$AZURE_TENANT_ID/g" ${NIFI_HOME}/conf/authorizers.xml
+	`)
+
 	command := []string{"bash", "-ce", fmt.Sprintf(`cp ${NIFI_HOME}/tmp/* ${NIFI_HOME}/conf/
 %s
 %s
-exec bin/nifi.sh run`, resolveIp, singleUser)}
+%s
+exec bin/nifi.sh run`, azureCredential, resolveIp, singleUser)}
 
 	return corev1.Container{
 		Name:            ContainerName,
