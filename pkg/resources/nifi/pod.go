@@ -565,20 +565,26 @@ done
 echo "Hostname is successfully binded withy IP address"`, nodeAddress, nodeAddress)
 	}
 
-	azureCredential := fmt.Sprintf(`echo "Populating configuration files with secrets..."
-sed -i "s/AZURE_CLIENT_ID_OVERRIDE_ME/$AZURE_CLIENT_ID/g" ${NIFI_HOME}/conf/nifi.properties
-sed -i "s/AZURE_CLIENT_SECRET_OVERRIDE_ME/$AZURE_CLIENT_SECRET/g" ${NIFI_HOME}/conf/nifi.properties
-sed -i "s/AZURE_TENANT_ID_OVERRIDE_ME/$AZURE_TENANT_ID/g" ${NIFI_HOME}/conf/nifi.properties
-sed -i "s/AZURE_CLIENT_ID_OVERRIDE_ME/$AZURE_CLIENT_ID/g" ${NIFI_HOME}/conf/authorizers.xml
-sed -i "s/AZURE_CLIENT_SECRET_OVERRIDE_ME/$AZURE_CLIENT_SECRET/g" ${NIFI_HOME}/conf/authorizers.xml
-sed -i "s/AZURE_TENANT_ID_OVERRIDE_ME/$AZURE_TENANT_ID/g" ${NIFI_HOME}/conf/authorizers.xml
+	secretReplacement := fmt.Sprintf(`echo "Populating configuration files with secrets..."
+prop_replace () {
+	target_file=${NIFI_HOME}/conf/${3:-nifi.properties}
+	echo "updating ${1} in ${target_file}"
+	if egrep "^${1}=" ${target_file} &> /dev/null; then
+		sed -i -e "s|^$1=.*$|$1=$2|" ${target_file}
+	else
+		echo ${1}=${2} >> ${target_file}
+	fi
+}
+prop_replace nifi.security.user.oidc.client.id ${AZURE_CLIENT_ID}
+prop_replace nifi.security.user.oidc.client.secret ${AZURE_CLIENT_SECRET}
+prop_replace nifi.security.user.oidc.discovery.url "https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration"	
 	`)
 
 	command := []string{"bash", "-ce", fmt.Sprintf(`cp ${NIFI_HOME}/tmp/* ${NIFI_HOME}/conf/
 %s
 %s
 %s
-exec bin/nifi.sh run`, azureCredential, resolveIp, singleUser)}
+exec bin/nifi.sh run`, secretReplacement, resolveIp, singleUser)}
 
 	return corev1.Container{
 		Name:            ContainerName,
