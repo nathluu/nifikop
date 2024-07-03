@@ -477,35 +477,57 @@ func (r *Reconciler) createNifiNodeContainer(nodeConfig *v1.NodeConfig, id int32
 			},
 		},
 		{
-			Name: "AZURE_CLIENT_ID",
+			Name: "NIFI_SECURITY_OIDC_CLIENT_ID",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: "nifi-secrets",
 					},
-					Key: "AZURE_CLIENT_ID",
+					Key: "NIFI_SECURITY_OIDC_CLIENT_ID",
 				},
 			},
 		},
 		{
-			Name: "AZURE_CLIENT_SECRET",
+			Name: "NIFI_SECURITY_OIDC_CLIENT_SECRET",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: "nifi-secrets",
 					},
-					Key: "AZURE_CLIENT_SECRET",
+					Key: "NIFI_SECURITY_OIDC_CLIENT_SECRET",
 				},
 			},
 		},
 		{
-			Name: "AZURE_TENANT_ID",
+			Name: "NIFI_SECURITY_OIDC_DISCOVERY_URL",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: "nifi-secrets",
 					},
-					Key: "AZURE_TENANT_ID",
+					Key: "NIFI_SECURITY_OIDC_DISCOVERY_URL",
+				},
+			},
+		},
+		{
+			Name: "NIFI_APP_DIRECTORY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "nifi-secrets",
+					},
+					Key: "NIFI_APP_DIRECTORY_ID",
+				},
+			},
+		},
+		{
+			Name: "NIFI_SECURITY_OIDC_ENABLED",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "nifi-secrets",
+					},
+					Key: "NIFI_SECURITY_OIDC_ENABLED",
 				},
 			},
 		},
@@ -565,21 +587,24 @@ done
 echo "Hostname is successfully binded withy IP address"`, nodeAddress, nodeAddress)
 	}
 
-	secretReplacement := fmt.Sprintf(`echo "Populating configuration files with secrets..."
-prop_replace () {
-	target_file=${NIFI_HOME}/conf/${3:-nifi.properties}
-	echo "updating ${1} in ${target_file}"
-	if egrep "^${1}=" ${target_file} &> /dev/null; then
-		sed -i -e "s|^$1=.*$|$1=$2|" ${target_file}
-	else
-		echo ${1}=${2} >> ${target_file}
-	fi
-}
-prop_replace nifi.security.user.oidc.client.id ${AZURE_CLIENT_ID}
-prop_replace nifi.security.user.oidc.client.secret ${AZURE_CLIENT_SECRET}
-prop_replace nifi.security.user.oidc.discovery.url "https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration"	
-	`)
-
+	secretReplacement := fmt.Sprintf(`if [ "${NIFI_SECURITY_OIDC_ENABLED}" == "true" ]; then 
+	echo "Populating configuration files with secrets..."
+	prop_replace () {
+		target_file=${NIFI_HOME}/conf/${3:-nifi.properties}
+		echo "updating ${1} in ${target_file}"
+		if egrep "^${1}=" ${target_file} &> /dev/null; then
+			sed -i -e "s|^$1=.*$|$1=$2|" ${target_file}
+		else
+			echo ${1}=${2} >> ${target_file}
+		fi
+	}
+	prop_replace nifi.security.user.oidc.client.id ${NIFI_SECURITY_OIDC_CLIENT_ID}
+	prop_replace nifi.security.user.oidc.client.secret ${NIFI_SECURITY_OIDC_CLIENT_SECRET}
+	prop_replace nifi.security.user.oidc.discovery.url ${NIFI_SECURITY_OIDC_DISCOVERY_URL}
+	xmlstarlet ed --inplace --update "//authorizers/userGroupProvider/property[@name='Application ID']" -v ${NIFI_SECURITY_OIDC_CLIENT_ID} "${NIFI_HOME}/conf/authorizers.xml"
+	xmlstarlet ed --inplace --update  "//authorizers/userGroupProvider/property[@name='Client Secret']" -v ${NIFI_SECURITY_OIDC_CLIENT_SECRET} "${NIFI_HOME}/conf/authorizers.xml"
+	xmlstarlet ed --inplace --update  "//authorizers/userGroupProvider/property[@name='Directory ID']" -v ${NIFI_APP_DIRECTORY_ID} "${NIFI_HOME}/conf/authorizers.xml"
+fi`)
 	command := []string{"bash", "-ce", fmt.Sprintf(`cp ${NIFI_HOME}/tmp/* ${NIFI_HOME}/conf/
 %s
 %s
