@@ -476,39 +476,6 @@ func (r *Reconciler) createNifiNodeContainer(nodeConfig *v1.NodeConfig, id int32
 				},
 			},
 		},
-		{
-			Name: "NIFI_SECURITY_OIDC_CLIENT_ID",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "nifi-secrets",
-					},
-					Key: "NIFI_SECURITY_OIDC_CLIENT_ID",
-				},
-			},
-		},
-		{
-			Name: "NIFI_SECURITY_OIDC_CLIENT_SECRET",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "nifi-secrets",
-					},
-					Key: "NIFI_SECURITY_OIDC_CLIENT_SECRET",
-				},
-			},
-		},
-		{
-			Name: "NIFI_SECURITY_OIDC_ENABLED",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "nifi-secrets",
-					},
-					Key: "NIFI_SECURITY_OIDC_ENABLED",
-				},
-			},
-		},
 	}
 
 	singleUser := ""
@@ -565,7 +532,7 @@ done
 echo "Hostname is successfully binded withy IP address"`, nodeAddress, nodeAddress)
 	}
 
-	secretReplacement := fmt.Sprintf(`if [ "${NIFI_SECURITY_OIDC_ENABLED}" == "true" ]; then 
+	secretReplacement := fmt.Sprintf(`if [ "${NIFI_SECURITY_OIDC_ENABLED}" = "true" ]; then 
 	echo "Populating configuration files with secrets..."
 	prop_replace () {
 		target_file=${NIFI_HOME}/conf/${3:-nifi.properties}
