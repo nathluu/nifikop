@@ -532,7 +532,7 @@ done
 echo "Hostname is successfully binded withy IP address"`, nodeAddress, nodeAddress)
 	}
 
-	secretReplacement := fmt.Sprintf(`if [ "${NIFI_SECURITY_OIDC_ENABLED}" = "true" ]; then 
+	secretReplacement := fmt.Sprintf(`if [[ "${NIFI_SECURITY_OIDC_ENABLED}" == "true" ]]; then
 	echo "Populating configuration files with secrets..."
 	prop_replace () {
 		target_file=${NIFI_HOME}/conf/${3:-nifi.properties}
